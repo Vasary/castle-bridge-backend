@@ -76,6 +76,7 @@ export class GameState {
     this.isOver = false;
     this.isStarted = false;
     this.heroes = [];
+    this.scores = new Scores();
     this.villains = createVillains();
   }
 }
