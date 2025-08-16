@@ -8,7 +8,7 @@ import {
   OnGatewayDisconnect
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
 // Application commands and queries
@@ -32,9 +32,10 @@ import { ClientToServerEvents } from '../../shared/contracts/client-to-server.ev
 })
 @Injectable()
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(GameGateway.name);
   private clientToHeroId: Map<string, string> = new Map();
 
-  @WebSocketServer() 
+  @WebSocketServer()
   server: Server = new Server<ServerToClientEvents, ClientToServerEvents>();
 
   constructor(
@@ -100,6 +101,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleConnection(client: Socket): Promise<void> {
+    this.logger.log(`🔌 CLIENT CONNECTED: ${client.id} | Total connections: ${this.server.engine.clientsCount}`);
+
     const gameState = await this.queryBus.execute(new GameStateQuery());
     client.emit('game.state', gameState);
 
@@ -114,8 +117,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.commandBus.execute(new PlayerLeaveCommand(heroId));
       this.clientToHeroId.delete(client.id);
 
+      this.logger.log(`🚪 PLAYER LEFT: ${heroId} (${client.id}) | Remaining connections: ${this.server.engine.clientsCount - 1}`);
+
       const gameState = await this.queryBus.execute(new GameStateQuery());
       this.server.emit('game.state', gameState);
+    } else {
+      this.logger.log(`🔌 CLIENT DISCONNECTED: ${client.id} | Remaining connections: ${this.server.engine.clientsCount - 1}`);
     }
   }
 

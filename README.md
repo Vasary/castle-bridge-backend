@@ -112,7 +112,83 @@ npm run start:prod
 npm run start:debug
 ```
 
-The application will start on `http://localhost:3000` with WebSocket support.
+The application will start on `http://0.0.0.0:3000` with WebSocket support, accessible from any network interface.
+
+### 🌐 Network Configuration
+
+The application listens on `0.0.0.0:3000` by default, making it accessible from:
+- **Local development**: `http://localhost:3000`
+- **Network access**: `http://[your-ip]:3000`
+- **Docker/Container**: Accessible from host machine
+- **Production deployment**: Ready for external access
+
+On startup, the application will display all available network interfaces:
+```
+🚀 Castle Bridge Backend started successfully!
+📡 Listening on 0.0.0.0:3000
+🌐 Available network interfaces:
+   ens3: http://192.168.1.100:3000 (IPv4)
+   eth0: http://10.0.0.50:3000 (IPv4)
+🎮 WebSocket server ready for game connections
+📊 Game logging enabled - watch for player activity below
+```
+
+### 🔧 Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Port number for the HTTP server |
+
+Example:
+```bash
+# Custom port
+PORT=8080 npm run start:prod
+
+# The app will run on http://0.0.0.0:8080
+```
+
+### 📊 Comprehensive Logging
+
+The application provides detailed real-time logging of all game activities:
+
+#### 🎮 Game Events
+```
+🦸 PLAYER JOINED: Aragorn (ID: hero-1) | Power: 8 | Heroes: 1 | Villains: 3/3
+🎮 GAME STARTED: 2 heroes vs 3 villains | Battle begins!
+🤖 AI STARTED: Villains will now attack heroes automatically every 1 second
+```
+
+#### ⚔️ Combat Logging
+```
+⚔️ HERO ATTACK: Aragorn ➤ Dark Lord | Damage: 12 | 100HP ➤ ❤️ 88HP
+🤖 AI ATTACK: Shadow Warrior ➤ Legolas | Damage: 8 | 100HP ➤ ❤️ 92HP
+⚔️ HERO ATTACK: Gimli ➤ Evil Sorcerer | Damage: 15 | 45HP ➤ 💀 KILLED
+```
+
+#### 🌐 Connection Events
+```
+🔌 CLIENT CONNECTED: abc123 | Total connections: 1
+🚪 PLAYER LEFT: hero-2 (def456) | Remaining connections: 2
+```
+
+#### 🏁 Game State Changes
+```
+🏁 GAME OVER: Heroes: 0 | Villains: 2 | Total Scores: 15
+🔄 GAME RESTARTED: New battle with 4 fresh villains | All heroes and villains reset to full health
+```
+
+### 🧪 Testing Logging
+
+To see the logging in action, run the test script:
+```bash
+# Start the server
+npm run start:prod
+
+# In another terminal, run the logging test
+node test-logging.js
+```
+
+This will simulate multiple players joining, attacking, and demonstrate all logging features.
 
 ### 🧪 Testing
 

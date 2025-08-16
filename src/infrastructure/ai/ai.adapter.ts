@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { EventBus } from '@nestjs/cqrs';
 import { AiPort } from '../../application/ports/ai.port';
@@ -9,6 +9,7 @@ import { GameFinishedEvent } from '../../domain/events/game-finished.event';
 
 @Injectable()
 export class AiAdapter implements AiPort {
+  private readonly logger = new Logger(AiAdapter.name);
   private isAiRunning = false;
 
   constructor(
@@ -19,10 +20,12 @@ export class AiAdapter implements AiPort {
 
   startAi(): void {
     this.isAiRunning = true;
+    this.logger.log(`🤖 AI STARTED: Villains will now attack heroes automatically every 1 second`);
   }
 
   stopAi(): void {
     this.isAiRunning = false;
+    this.logger.log(`🤖 AI STOPPED: Villains will no longer attack automatically`);
   }
 
   isRunning(): boolean {
@@ -43,9 +46,17 @@ export class AiAdapter implements AiPort {
 
       const hero = game.getRandomAliveHero();
       const villain = game.getRandomAliveVillain();
+      const heroHealthBefore = hero.getHealth().getValue();
 
       const attackResult = this.combatService.executeAttack(villain, hero);
       game.addScore(attackResult.score);
+
+      // Log the AI attack with detailed information
+      const heroHealthAfter = hero.getHealth().getValue();
+      const isKilled = heroHealthAfter === 0;
+      const killStatus = isKilled ? '💀 KILLED' : `❤️ ${heroHealthAfter}HP`;
+
+      this.logger.log(`🤖 AI ATTACK: ${villain.getName().getValue()} ➤ ${hero.getName().getValue()} | Damage: ${attackResult.damage} | ${heroHealthBefore}HP ➤ ${killStatus}`);
 
       // Publish attack event
       this.eventBus.publish(new UnitAttackedEvent(
@@ -57,6 +68,9 @@ export class AiAdapter implements AiPort {
       // Check if game should end
       if (game.shouldGameEnd()) {
         game.finish();
+        const aliveHeroes = game.getAliveHeroes().length;
+        const aliveVillains = game.getAliveVillains().length;
+        this.logger.log(`🏁 GAME OVER: Heroes: ${aliveHeroes} | Villains: ${aliveVillains} | Total Scores: ${game.getScores().length}`);
         this.eventBus.publish(new GameFinishedEvent(game));
       }
 
