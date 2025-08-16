@@ -24,7 +24,38 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Castle Bridge Backend - A real-time multiplayer game built with NestJS, following Domain-Driven Design (DDD) and Ports/Adapters (Hexagonal Architecture) patterns.
+
+## Architecture
+
+This project has been refactored to follow clean architecture principles:
+
+### Domain Layer (`src/domain/`)
+- **Entities**: Core business objects (Unit, Score)
+- **Value Objects**: Immutable objects representing domain concepts (UnitId, Health, Power, etc.)
+- **Aggregates**: Game aggregate that manages the game state and business rules
+- **Domain Services**: Business logic services (UnitFactoryService, CombatService)
+- **Domain Events**: Events that represent important business occurrences
+- **Repository Interfaces**: Contracts for data persistence
+
+### Application Layer (`src/application/`)
+- **Commands & Queries**: CQRS implementation for handling user actions
+- **Command/Query Handlers**: Application services that orchestrate domain operations
+- **Ports**: Interfaces for external dependencies (WebSocketPort, AiPort)
+
+### Infrastructure Layer (`src/infrastructure/`)
+- **Adapters**: Implementations of ports (WebSocketAdapter, AiAdapter)
+- **Persistence**: Repository implementations (InMemoryGameRepository)
+- **WebSocket Gateway**: Real-time communication handling
+- **Event Handlers**: Domain event handlers for side effects
+
+## Game Features
+
+- **Real-time multiplayer combat**: Players can join and attack enemies
+- **AI opponents**: Automated villains that attack players periodically
+- **WebSocket communication**: Real-time updates for all connected clients
+- **Game state management**: Persistent game state with scores and player management
+- **CQRS pattern**: Separate read and write operations for better scalability
 
 ## Installation
 
