@@ -1,10 +1,25 @@
 {
-  "name": "meetup_project-v3",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "name": "castle-bridge-backend",
+  "version": "1.0.0",
+  "description": "Castle Bridge - A real-time multiplayer game backend built with NestJS, following Domain-Driven Design (DDD) and Ports/Adapters (Hexagonal Architecture) patterns.",
+  "author": "Castle Bridge Team",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "websocket",
+    "game",
+    "ddd",
+    "hexagonal-architecture",
+    "cqrs",
+    "typescript",
+    "real-time",
+    "multiplayer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/castle-bridge-backend.git"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -17,7 +32,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:integration": "jest --testPathPattern=integration.spec.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.0.2",
@@ -26,11 +41,12 @@
     "@nestjs/cqrs": "^10.0.1",
     "@nestjs/platform-express": "^10.0.5",
     "@nestjs/platform-socket.io": "^10.0.5",
-    "@nestjs/schedule": "^3.0.1",
+    "@nestjs/schedule": "^6.0.0",
     "@nestjs/websockets": "^10.0.5",
+    "@types/uuid": "^10.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
-    "uuidv4": "^6.2.13"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.1.8",

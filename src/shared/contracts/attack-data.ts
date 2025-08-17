@@ -1,7 +1,5 @@
-import { Unit } from "../../unit/entity/unit.enity";
-
 export interface AttackData {
-  trigger: Unit,
-  target: Unit,
+  trigger: any,
+  target: any,
   attackPower: number,
 }
