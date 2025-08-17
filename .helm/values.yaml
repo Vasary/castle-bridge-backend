@@ -1,0 +1,66 @@
+imagePullSecrets: []
+nameOverride: 'castle-bridge-server'
+fullnameOverride: 'castle-bridge-server'
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: 'castle-bridge-server-sa'
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  cloudflare:
+    enabled: true
+    className: 'cloudflare-tunnel'
+    annotations:
+      cert-manager.io/cluster-issuer: 'letsencrypt-cloudflare'
+    hosts:
+      - host: castle-bridge-server.cfv3.org
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls:
+      - secretName: cfv3-castle-bridge-server-tls
+        hosts:
+          - castle-bridge-server.cfv3.org
+
+  internal:
+    enabled: true
+    className: 'nginx'
+    annotations:
+      cert-manager.io/cluster-issuer: 'letsencrypt-cloudflare'
+    hosts:
+      - host: castle-bridge-server.cfv3.org
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls:
+      - secretName: cfv3-castle-bridge-server-tls
+        hosts:
+          - castle-bridge-server.cfv3.org
+
+resources: {}
+
+livenessProbe:
+  {}
+  # httpGet:
+  # path: /
+  # port: http
+readinessProbe:
+  {}
+  # httpGet:
+  # path: /
+  # port: http
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
