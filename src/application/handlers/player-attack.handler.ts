@@ -29,6 +29,11 @@ export class PlayerAttackHandler implements ICommandHandler<PlayerAttackCommand>
       throw new Error('Hero not found');
     }
 
+    if (!hero.canAttack()) {
+      const timeRemaining = hero.getTimeUntilNextAttack();
+      throw new Error(`Hero must wait ${Math.ceil(timeRemaining / 1000)} seconds before next attack`);
+    }
+
     try {
       const target = game.getRandomAliveVillain();
       const targetHealthBefore = target.getHealth().getValue();
@@ -36,12 +41,12 @@ export class PlayerAttackHandler implements ICommandHandler<PlayerAttackCommand>
 
       game.addScore(attackResult.score);
 
-      // Log the attack with detailed information
       const targetHealthAfter = target.getHealth().getValue();
       const isKilled = targetHealthAfter === 0;
       const killStatus = isKilled ? '💀 KILLED' : `❤️ ${targetHealthAfter}HP`;
+      const nextAttackIn = hero.getTimeUntilNextAttack();
 
-      this.logger.log(`⚔️ HERO ATTACK: ${hero.getName().getValue()} ➤ ${target.getName().getValue()} | Damage: ${attackResult.damage} | ${targetHealthBefore}HP ➤ ${killStatus}`);
+      this.logger.log(`⚔️ HERO ATTACK: ${hero.getName().getValue()} ➤ ${target.getName().getValue()} | Damage: ${attackResult.damage} | ${targetHealthBefore}HP ➤ ${killStatus} | Next attack in: ${Math.ceil(nextAttackIn / 1000)}s`);
 
       // Publish attack event
       this.eventBus.publish(new UnitAttackedEvent(
@@ -66,10 +71,15 @@ export class PlayerAttackHandler implements ICommandHandler<PlayerAttackCommand>
         attackData: {
           target: attackResult.target.toPlainObject(),
           trigger: attackResult.attacker.toPlainObject(),
-          attackPower: attackResult.damage
+          attackPower: attackResult.damage,
+          nextAttackAvailable: new Date(Date.now() + hero.getTimeUntilNextAttack()).toISOString()
         }
       };
     } catch (error) {
+      if (error.message.includes('must wait')) {
+        throw error; // Re-throw cooldown errors to client
+      }
+
       // No alive villains - game over
       game.finish();
       this.logger.log(`🏁 GAME OVER: No more villains alive!`);

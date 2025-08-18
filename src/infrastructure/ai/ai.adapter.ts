@@ -11,6 +11,7 @@ import { GameFinishedEvent } from '../../domain/events/game-finished.event';
 export class AiAdapter implements AiPort {
   private readonly logger = new Logger(AiAdapter.name);
   private isAiRunning = false;
+  private aiIntervalId: NodeJS.Timeout | null = null;
 
   constructor(
     @Inject('GameRepository') private readonly gameRepository: GameRepository,
@@ -20,11 +21,17 @@ export class AiAdapter implements AiPort {
 
   startAi(): void {
     this.isAiRunning = true;
-    this.logger.log(`🤖 AI STARTED: Villains will now attack heroes automatically every 1 second`);
+    this.logger.log(`🤖 AI STARTED: Villains will attack when their cooldowns allow`);
+
+    this.aiIntervalId = setInterval(() => this.executeAiAction(), 200);
   }
 
   stopAi(): void {
     this.isAiRunning = false;
+    if (this.aiIntervalId) {
+      clearInterval(this.aiIntervalId);
+      this.aiIntervalId = null;
+    }
     this.logger.log(`🤖 AI STOPPED: Villains will no longer attack automatically`);
   }
 
@@ -32,7 +39,6 @@ export class AiAdapter implements AiPort {
     return this.isAiRunning;
   }
 
-  @Interval(1000)
   async executeAiAction(): Promise<void> {
     if (!this.isAiRunning) {
       return;
@@ -44,19 +50,32 @@ export class AiAdapter implements AiPort {
         return;
       }
 
+      const aliveVillains = game.getAliveVillains();
+      const aliveHeroes = game.getAliveHeroes();
+
+      if (aliveVillains.length === 0 || aliveHeroes.length === 0) {
+        return;
+      }
+
+      const readyVillains = aliveVillains.filter(villain => villain.canAttack());
+
+      if (readyVillains.length === 0) {
+        return;
+      }
+
+      const villain = readyVillains[Math.floor(Math.random() * readyVillains.length)];
       const hero = game.getRandomAliveHero();
-      const villain = game.getRandomAliveVillain();
       const heroHealthBefore = hero.getHealth().getValue();
 
       const attackResult = this.combatService.executeAttack(villain, hero);
       game.addScore(attackResult.score);
 
-      // Log the AI attack with detailed information
       const heroHealthAfter = hero.getHealth().getValue();
       const isKilled = heroHealthAfter === 0;
       const killStatus = isKilled ? '💀 KILLED' : `❤️ ${heroHealthAfter}HP`;
+      const nextAttackIn = villain.getTimeUntilNextAttack();
 
-      this.logger.log(`🤖 AI ATTACK: ${villain.getName().getValue()} ➤ ${hero.getName().getValue()} | Damage: ${attackResult.damage} | ${heroHealthBefore}HP ➤ ${killStatus}`);
+      this.logger.log(`🤖 AI ATTACK: ${villain.getName().getValue()} ➤ ${hero.getName().getValue()} | Damage: ${attackResult.damage} | ${heroHealthBefore}HP ➤ ${killStatus} | Next attack in: ${Math.ceil(nextAttackIn / 1000)}s`);
 
       // Publish attack event
       this.eventBus.publish(new UnitAttackedEvent(
@@ -68,15 +87,18 @@ export class AiAdapter implements AiPort {
       // Check if game should end
       if (game.shouldGameEnd()) {
         game.finish();
-        const aliveHeroes = game.getAliveHeroes().length;
-        const aliveVillains = game.getAliveVillains().length;
-        this.logger.log(`🏁 GAME OVER: Heroes: ${aliveHeroes} | Villains: ${aliveVillains} | Total Scores: ${game.getScores().length}`);
+        const aliveHeroesCount = game.getAliveHeroes().length;
+        const aliveVillainsCount = game.getAliveVillains().length;
+        this.logger.log(`🏁 GAME OVER: Heroes: ${aliveHeroesCount} | Villains: ${aliveVillainsCount} | Total Scores: ${game.getScores().length}`);
         this.eventBus.publish(new GameFinishedEvent(game));
       }
 
       await this.gameRepository.save(game);
     } catch (error) {
-      // Handle case where no heroes or villains are alive
+      if (error.message.includes('must wait')) {
+        return;
+      }
+
       const game = await this.gameRepository.findCurrent();
       if (game) {
         game.finish();

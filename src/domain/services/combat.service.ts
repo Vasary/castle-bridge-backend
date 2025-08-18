@@ -7,6 +7,7 @@ export interface AttackResult {
   target: Unit;
   damage: number;
   score: Score;
+  wasBlocked: boolean;
 }
 
 @Injectable()
@@ -15,16 +16,20 @@ export class CombatService {
     if (!attacker.isAlive()) {
       throw new Error('Dead units cannot attack');
     }
-    
+
     if (!target.isAlive()) {
       throw new Error('Cannot attack dead units');
     }
 
+    if (!attacker.canAttack()) {
+      throw new Error(`Unit must wait ${attacker.getTimeUntilNextAttack()}ms before next attack`);
+    }
+
     const damage = attacker.attack();
     const targetHealthBefore = target.getHealth().getValue();
-    
+
     target.takeDamage(damage);
-    
+
     const score = new Score(
       attacker.getName().getValue(),
       target.getName().getValue(),
@@ -36,7 +41,21 @@ export class CombatService {
       attacker,
       target,
       damage,
-      score
+      score,
+      wasBlocked: false
+    };
+  }
+
+  canExecuteAttack(attacker: Unit, target: Unit): boolean {
+    return attacker.isAlive() &&
+           target.isAlive() &&
+           attacker.canAttack();
+  }
+
+  getAttackCooldownInfo(unit: Unit): { canAttack: boolean; timeRemaining: number } {
+    return {
+      canAttack: unit.canAttack(),
+      timeRemaining: unit.getTimeUntilNextAttack()
     };
   }
 }

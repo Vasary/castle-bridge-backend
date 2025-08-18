@@ -6,6 +6,7 @@ import { Avatar } from '../value-objects/avatar';
 import { Power } from '../value-objects/power';
 import { UnitId } from '../value-objects/unit-id';
 import { UnitName } from '../value-objects/unit-name';
+import { AttackSpeed } from '../value-objects/attack-speed';
 
 @Injectable()
 export class UnitFactoryService {
@@ -14,7 +15,8 @@ export class UnitFactoryService {
       new UnitId(id),
       new UnitName(name),
       Avatar.createRandom(),
-      Power.createRandom()
+      Power.createRandom(),
+      AttackSpeed.createRandom(800, 2000) // Heroes: 0.8-2.0 seconds
     );
   }
 
@@ -23,7 +25,29 @@ export class UnitFactoryService {
       new UnitId(uuidv4()),
       new UnitName(name || faker.person.firstName()),
       Avatar.createRandom(),
-      Power.createRandom()
+      Power.createRandom(),
+      AttackSpeed.createRandom(1200, 3000) // Villains: 1.2-3.0 seconds (slightly slower)
+    );
+  }
+
+  // Create specialized unit types
+  createFastHero(id: string, name: string): Unit {
+    return Unit.createHero(
+      new UnitId(id),
+      new UnitName(name),
+      Avatar.createRandom(),
+      Power.createRandom(3, 8), // Lower power for balance
+      AttackSpeed.createFast()
+    );
+  }
+
+  createTankHero(id: string, name: string): Unit {
+    return Unit.createHero(
+      new UnitId(id),
+      new UnitName(name),
+      Avatar.createRandom(),
+      Power.createRandom(8, 15), // Higher power
+      AttackSpeed.createSlow()
     );
   }
 

@@ -25,6 +25,12 @@ describe('Game Integration Tests', () => {
   });
 
   afterEach(async () => {
+    // Stop AI adapter to clean up intervals
+    const aiAdapter = app.get('AiPort');
+    if (aiAdapter && aiAdapter.isRunning()) {
+      aiAdapter.stopAi();
+    }
+
     await app.close();
   });
 
@@ -56,6 +62,7 @@ describe('Game Integration Tests', () => {
     expect(attackResult).toBeDefined();
     expect(attackResult.gameState).toBeDefined();
     expect(attackResult.attackData).toBeDefined();
+    expect(attackResult.attackData.nextAttackAvailable).toBeDefined();
   });
 
   it('should maintain game state correctly', async () => {
@@ -69,9 +76,46 @@ describe('Game Integration Tests', () => {
     expect(gameState.heroes).toHaveLength(1);
     expect(gameState.villains.length).toBeGreaterThan(0);
 
+    // Verify attack speed is included in game state
+    const hero = gameState.heroes[0];
+    expect(hero.attackSpeed).toBeDefined();
+    expect(hero.canAttack).toBeDefined();
+    expect(hero.timeUntilNextAttack).toBeDefined();
+
+    const villain = gameState.villains[0];
+    expect(villain.attackSpeed).toBeDefined();
+    expect(villain.canAttack).toBeDefined();
+    expect(villain.timeUntilNextAttack).toBeDefined();
+
     // Start the game
     await commandBus.execute(new GameStartCommand());
     gameState = await queryBus.execute(new GameStateQuery());
     expect(gameState.isStarted).toBe(true);
+  });
+
+  it('should enforce attack cooldowns', async () => {
+    // Join a player
+    await commandBus.execute(
+      new PlayerJoinCommand('test-player-1', 'TestHero')
+    );
+
+    // Start the game
+    await commandBus.execute(new GameStartCommand());
+
+    // First attack should succeed
+    const firstAttack = await commandBus.execute(
+      new PlayerAttackCommand('test-player-1')
+    );
+    expect(firstAttack).toBeDefined();
+
+    // Second immediate attack should fail due to cooldown
+    try {
+      await commandBus.execute(
+        new PlayerAttackCommand('test-player-1')
+      );
+      fail('Expected attack to fail due to cooldown');
+    } catch (error) {
+      expect(error.message).toContain('must wait');
+    }
   });
 });
