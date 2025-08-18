@@ -81,12 +81,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const attackResult = await this.commandBus.execute(
+      await this.commandBus.execute(
         new PlayerAttackCommand(heroId)
       );
-
-      this.server.emit('game.state', attackResult.gameState);
-      this.server.emit('unit.attack', attackResult.attackData);
+      // Attack event and game state will be emitted by UnitAttackedEventHandler
     } catch (error) {
       // Handle attack errors (e.g., no enemies left)
       const gameState = await this.queryBus.execute(new GameStateQuery());
