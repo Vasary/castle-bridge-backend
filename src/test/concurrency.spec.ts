@@ -51,6 +51,11 @@ describe('Concurrency Tests', () => {
     eventBus = module.get<EventBus>(EventBus);
   });
 
+  afterEach(() => {
+    // Clear any remaining locks
+    mutexService.clearAllLocks();
+  });
+
   describe('MutexService', () => {
     it('should prevent concurrent execution of the same operation', async () => {
       const results: number[] = [];

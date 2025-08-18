@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+ import { Test, TestingModule } from '@nestjs/testing';
 import { PlayerAttackHandler } from '../application/handlers/player-attack.handler';
 import { PlayerAttackCommand } from '../application/commands/player-attack.command';
 import { CombatService } from '../domain/services/combat.service';
@@ -47,6 +47,11 @@ describe('Race Condition Scenarios', () => {
     unitFactory = module.get<UnitFactoryService>(UnitFactoryService);
     mutexService = module.get<MutexService>(MutexService);
     eventBus = module.get<EventBus>(EventBus);
+  });
+
+  afterEach(() => {
+    // Clear any remaining locks
+    mutexService.clearAllLocks();
   });
 
   describe('Multiple Players Attacking Simultaneously', () => {
