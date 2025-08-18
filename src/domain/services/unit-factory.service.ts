@@ -23,10 +23,10 @@ export class UnitFactoryService {
   createVillain(name?: string): Unit {
     return Unit.createVillain(
       new UnitId(uuidv4()),
-      new UnitName(name || faker.person.firstName()),
+      new UnitName(name || this.generateRandomVillainName()),
       Avatar.createRandom(),
       Power.createRandom(),
-      AttackSpeed.createRandom(1200, 3000) // Villains: 1.2-3.0 seconds (slightly slower)
+      AttackSpeed.createRandom(1200, 3000)
     );
   }
 
@@ -64,9 +64,11 @@ export class UnitFactoryService {
 
   private generateRandomVillainName(): string {
     const names = [
-      'Dark Lord', 'Shadow Warrior', 'Evil Sorcerer', 'Black Knight',
-      'Demon King', 'Wicked Witch', 'Fallen Angel', 'Death Bringer',
-      'Soul Reaper', 'Chaos Master', 'Void Walker', 'Nightmare'
+      'Antharas', 'Valakas', 'Baium', 'Zaken', 'Orfen',
+      'Core', 'Queen Ant', 'Beleth', 'Frintezza', 'Sailren',
+      'Lindvior', 'Tiat', 'Ekimus', 'Tauti', 'Octavis',
+      'Istina', 'Balok', 'Trasken', 'Baylor', 'Helios',
+      'Kelbim', 'Spezion', 'Embryo', 'Ramona', 'Anakim'
     ];
     return names[Math.floor(Math.random() * names.length)];
   }
