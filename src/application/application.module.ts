@@ -17,6 +17,7 @@ import { GameStateHandler } from './handlers/game-state.handler';
 // Infrastructure imports
 import { AiAdapter } from '../infrastructure/ai/ai.adapter';
 import { InMemoryGameRepository } from '../infrastructure/persistence/in-memory-game.repository';
+import { MutexService } from '../shared/services/mutex.service';
 
 const commandHandlers = [
   PlayerJoinHandler,
@@ -38,6 +39,9 @@ const queryHandlers = [
     DomainModule
   ],
   providers: [
+    // Shared services
+    MutexService,
+
     // Repository implementations
     {
       provide: 'GameRepository',
@@ -57,6 +61,7 @@ const queryHandlers = [
     ...queryHandlers
   ],
   exports: [
+    MutexService,
     'GameRepository',
     'AiPort',
     AiAdapter,

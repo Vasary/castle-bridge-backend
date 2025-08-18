@@ -34,6 +34,8 @@ import { ClientToServerEvents } from '../../shared/contracts/client-to-server.ev
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(GameGateway.name);
   private clientToHeroId: Map<string, string> = new Map();
+  private readonly MAX_CLIENT_CONNECTIONS = 1000; // Prevent memory leaks
+  private cleanupInterval: NodeJS.Timeout;
 
   @WebSocketServer()
   server: Server = new Server<ServerToClientEvents, ClientToServerEvents>();
@@ -41,7 +43,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus
-  ) {}
+  ) {
+    // Set up periodic cleanup of stale connections
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleConnections();
+    }, 60000); // Clean up every minute
+  }
 
   @SubscribeMessage('player.join')
   async playerJoinHandler(
@@ -99,6 +106,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleConnection(client: Socket): Promise<void> {
+    // Prevent memory exhaustion from too many connections
+    if (this.clientToHeroId.size >= this.MAX_CLIENT_CONNECTIONS) {
+      this.logger.warn(`Max connections reached (${this.MAX_CLIENT_CONNECTIONS}), rejecting new connection`);
+      client.disconnect(true);
+      return;
+    }
+
     this.logger.log(`🔌 CLIENT CONNECTED: ${client.id} | Total connections: ${this.server.engine.clientsCount}`);
 
     const gameState = await this.queryBus.execute(new GameStateQuery());
@@ -112,16 +126,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket): Promise<void> {
     const heroId = this.getHeroIdForClient(client);
     if (heroId) {
-      await this.commandBus.execute(new PlayerLeaveCommand(heroId));
-      this.clientToHeroId.delete(client.id);
+      try {
+        await this.commandBus.execute(new PlayerLeaveCommand(heroId));
+        this.logger.log(`🚪 PLAYER LEFT: ${heroId} (${client.id}) | Remaining connections: ${this.server.engine.clientsCount - 1}`);
 
-      this.logger.log(`🚪 PLAYER LEFT: ${heroId} (${client.id}) | Remaining connections: ${this.server.engine.clientsCount - 1}`);
-
-      const gameState = await this.queryBus.execute(new GameStateQuery());
-      this.server.emit('game.state', gameState);
+        const gameState = await this.queryBus.execute(new GameStateQuery());
+        this.server.emit('game.state', gameState);
+      } catch (error) {
+        this.logger.error(`Error handling player leave: ${error.message}`);
+      }
     } else {
       this.logger.log(`🔌 CLIENT DISCONNECTED: ${client.id} | Remaining connections: ${this.server.engine.clientsCount - 1}`);
     }
+
+    // Always clean up the mapping to prevent memory leaks
+    this.clientToHeroId.delete(client.id);
   }
 
   // Methods for external use (from event handlers)
@@ -138,5 +157,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private getHeroIdForClient(client: Socket): string | undefined {
     return this.clientToHeroId.get(client.id);
+  }
+
+  private cleanupStaleConnections(): void {
+    try {
+      const connectedClientIds = new Set(
+        Array.from(this.server.sockets.sockets.keys())
+      );
+
+      // Remove mappings for clients that are no longer connected
+      const staleClientIds: string[] = [];
+      for (const [clientId] of this.clientToHeroId) {
+        if (!connectedClientIds.has(clientId)) {
+          staleClientIds.push(clientId);
+        }
+      }
+
+      if (staleClientIds.length > 0) {
+        staleClientIds.forEach(clientId => {
+          this.clientToHeroId.delete(clientId);
+        });
+        this.logger.log(`🧹 Cleaned up ${staleClientIds.length} stale client connections`);
+      }
+    } catch (error) {
+      this.logger.error(`Error during stale connection cleanup: ${error.message}`);
+    }
+  }
+
+  // Cleanup method for graceful shutdown
+  onModuleDestroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    this.clientToHeroId.clear();
   }
 }

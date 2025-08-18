@@ -80,11 +80,17 @@ export class Unit {
   }
 
   attack(): number {
-    if (!this.canAttack()) {
-      throw new Error(`Unit must wait ${this.getTimeUntilNextAttack()}ms before next attack`);
+    const now = new Date();
+    const timeSinceLastAttack = now.getTime() - this.lastAttackTime.getTime();
+
+    // Atomic check and update - no race condition window
+    if (timeSinceLastAttack < this.attackSpeed.getCooldownMs()) {
+      const cooldownRemaining = this.attackSpeed.getCooldownMs() - timeSinceLastAttack;
+      throw new Error(`Unit must wait ${Math.ceil(cooldownRemaining / 1000)} seconds before next attack`);
     }
 
-    this.lastAttackTime = new Date();
+    // Atomically update the last attack time
+    this.lastAttackTime = now;
     return this.power.calculateAttackDamage();
   }
 

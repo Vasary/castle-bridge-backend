@@ -13,6 +13,7 @@ export class Game {
   private villains: Map<string, Unit> = new Map();
   private scores: Score[] = [];
   private status: GameStatus = GameStatus.NOT_STARTED;
+  private version: number = 0;
 
   constructor(villains: Unit[] = []) {
     villains.forEach(villain => {
@@ -37,10 +38,12 @@ export class Game {
       throw new Error('Game has already been started');
     }
     this.status = GameStatus.IN_PROGRESS;
+    this.incrementVersion();
   }
 
   finish(): void {
     this.status = GameStatus.FINISHED;
+    this.incrementVersion();
   }
 
   restart(newVillains: Unit[]): void {
@@ -48,7 +51,7 @@ export class Game {
     this.villains.clear();
     this.scores = [];
     this.status = GameStatus.NOT_STARTED;
-    
+
     newVillains.forEach(villain => {
       this.villains.set(villain.getId().getValue(), villain);
     });
@@ -59,10 +62,12 @@ export class Game {
       throw new Error('Only heroes can be added as heroes');
     }
     this.heroes.set(hero.getId().getValue(), hero);
+    this.incrementVersion();
   }
 
   removeHero(heroId: UnitId): void {
     this.heroes.delete(heroId.getValue());
+    this.incrementVersion();
   }
 
   getHero(heroId: UnitId): Unit | undefined {
@@ -103,6 +108,22 @@ export class Game {
 
   addScore(score: Score): void {
     this.scores.push(score);
+    this.incrementVersion();
+  }
+
+  getVersion(): number {
+    return this.version;
+  }
+
+  private incrementVersion(): void {
+    this.version++;
+  }
+
+  // Method to check version before critical operations
+  checkVersion(expectedVersion: number): void {
+    if (this.version !== expectedVersion) {
+      throw new Error(`Optimistic lock failure: expected version ${expectedVersion}, but current version is ${this.version}`);
+    }
   }
 
   getScores(): Score[] {
