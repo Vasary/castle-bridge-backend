@@ -1,6 +1,7 @@
 import { Unit, UnitType } from '../entities/unit';
 import { Score } from '../entities/score';
 import { UnitId } from '../value-objects/unit-id';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
 
 export enum GameStatus {
   NOT_STARTED = 'not_started',
@@ -35,7 +36,7 @@ export class Game {
 
   start(): void {
     if (this.status !== GameStatus.NOT_STARTED) {
-      throw new Error('Game has already been started');
+      throw new Error(GAME_CONSTANTS.ERRORS.GAME_ALREADY_STARTED);
     }
     this.status = GameStatus.IN_PROGRESS;
     this.incrementVersion();
@@ -59,7 +60,7 @@ export class Game {
 
   addHero(hero: Unit): void {
     if (hero.getType() !== UnitType.HERO) {
-      throw new Error('Only heroes can be added as heroes');
+      throw new Error(GAME_CONSTANTS.ERRORS.ONLY_HEROES_CAN_BE_ADDED);
     }
     this.heroes.set(hero.getId().getValue(), hero);
     this.incrementVersion();
@@ -93,7 +94,7 @@ export class Game {
   getRandomAliveHero(): Unit {
     const aliveHeroes = this.getAliveHeroes();
     if (aliveHeroes.length === 0) {
-      throw new Error('No alive heroes available');
+      throw new Error(GAME_CONSTANTS.ERRORS.NO_ALIVE_HEROES);
     }
     return aliveHeroes[Math.floor(Math.random() * aliveHeroes.length)];
   }
@@ -101,7 +102,7 @@ export class Game {
   getRandomAliveVillain(): Unit {
     const aliveVillains = this.getAliveVillains();
     if (aliveVillains.length === 0) {
-      throw new Error('No alive villains available');
+      throw new Error(GAME_CONSTANTS.ERRORS.NO_ALIVE_VILLAINS);
     }
     return aliveVillains[Math.floor(Math.random() * aliveVillains.length)];
   }
@@ -122,7 +123,9 @@ export class Game {
   // Method to check version before critical operations
   checkVersion(expectedVersion: number): void {
     if (this.version !== expectedVersion) {
-      throw new Error(`Optimistic lock failure: expected version ${expectedVersion}, but current version is ${this.version}`);
+      throw new Error(
+        `${GAME_CONSTANTS.ERRORS.OPTIMISTIC_LOCK_FAILURE_PREFIX} expected version ${expectedVersion}, but current version is ${this.version}`
+      );
     }
   }
 

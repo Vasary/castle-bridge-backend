@@ -1,24 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { Unit } from '../entities/unit';
 import { Score } from '../entities/score';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
+import { ICombatService, IAttackResult } from '../../shared/interfaces/attack.interface';
 
-export interface AttackResult {
-  attacker: Unit;
-  target: Unit;
-  damage: number;
-  score: Score;
-  wasBlocked: boolean;
-}
+// Keep the original interface for backward compatibility
+export interface AttackResult extends IAttackResult {}
 
 @Injectable()
-export class CombatService {
-  executeAttack(attacker: Unit, target: Unit): AttackResult {
+export class CombatService implements ICombatService {
+  executeAttack(attacker: Unit, target: Unit): IAttackResult {
     if (!attacker.isAlive()) {
-      throw new Error('Dead units cannot attack');
+      throw new Error(GAME_CONSTANTS.ERRORS.DEAD_UNITS_CANNOT_ATTACK);
     }
 
     if (!target.isAlive()) {
-      throw new Error('Cannot attack dead units');
+      throw new Error(GAME_CONSTANTS.ERRORS.CANNOT_ATTACK_DEAD_UNITS);
     }
 
     if (!attacker.canAttack()) {
@@ -26,16 +23,9 @@ export class CombatService {
     }
 
     const damage = attacker.attack();
-    const targetHealthBefore = target.getHealth().getValue();
-
     target.takeDamage(damage);
 
-    const score = new Score(
-      attacker.getName().getValue(),
-      target.getName().getValue(),
-      damage,
-      target.getHealth().getValue()
-    );
+    const score = this.createScore(attacker, target, damage);
 
     return {
       attacker,
@@ -44,6 +34,15 @@ export class CombatService {
       score,
       wasBlocked: false
     };
+  }
+
+  private createScore(attacker: Unit, target: Unit, damage: number): Score {
+    return new Score(
+      attacker.getName().getValue(),
+      target.getName().getValue(),
+      damage,
+      target.getHealth().getValue()
+    );
   }
 
   canExecuteAttack(attacker: Unit, target: Unit): boolean {

@@ -8,7 +8,7 @@ import {
   OnGatewayDisconnect
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
 // Application commands and queries
@@ -24,6 +24,7 @@ import { GameStateQuery } from '../../application/queries/game-state.query';
 import { PlayerJoinInterface } from '../../shared/contracts/player-join.interface';
 import { ServerToClientEvents } from '../../shared/contracts/server-to-client.event';
 import { ClientToServerEvents } from '../../shared/contracts/client-to-server.event';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
 
 @WebSocketGateway({
   cors: {
@@ -31,10 +32,9 @@ import { ClientToServerEvents } from '../../shared/contracts/client-to-server.ev
   },
 })
 @Injectable()
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   private readonly logger = new Logger(GameGateway.name);
   private clientToHeroId: Map<string, string> = new Map();
-  private readonly MAX_CLIENT_CONNECTIONS = 1000; // Prevent memory leaks
   private cleanupInterval: NodeJS.Timeout;
 
   @WebSocketServer()
@@ -47,7 +47,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Set up periodic cleanup of stale connections
     this.cleanupInterval = setInterval(() => {
       this.cleanupStaleConnections();
-    }, 60000); // Clean up every minute
+    }, GAME_CONSTANTS.STALE_CONNECTION_CLEANUP_INTERVAL_MS);
   }
 
   @SubscribeMessage('player.join')
@@ -107,13 +107,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket): Promise<void> {
     // Prevent memory exhaustion from too many connections
-    if (this.clientToHeroId.size >= this.MAX_CLIENT_CONNECTIONS) {
-      this.logger.warn(`Max connections reached (${this.MAX_CLIENT_CONNECTIONS}), rejecting new connection`);
+    if (this.clientToHeroId.size >= GAME_CONSTANTS.MAX_CLIENT_CONNECTIONS) {
+      this.logger.warn(`Max connections reached (${GAME_CONSTANTS.MAX_CLIENT_CONNECTIONS}), rejecting new connection`);
       client.disconnect(true);
       return;
     }
 
-    this.logger.log(`🔌 CLIENT CONNECTED: ${client.id} | Total connections: ${this.server.engine.clientsCount}`);
+    this.logger.log(
+      `${GAME_CONSTANTS.LOGS.CLIENT_CONNECTED}: ${client.id} | Total connections: ${this.server.engine.clientsCount}`
+    );
 
     const gameState = await this.queryBus.execute(new GameStateQuery());
     client.emit('game.state', gameState);
@@ -125,22 +127,37 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket): Promise<void> {
     const heroId = this.getHeroIdForClient(client);
-    if (heroId) {
-      try {
-        await this.commandBus.execute(new PlayerLeaveCommand(heroId));
-        this.logger.log(`🚪 PLAYER LEFT: ${heroId} (${client.id}) | Remaining connections: ${this.server.engine.clientsCount - 1}`);
 
-        const gameState = await this.queryBus.execute(new GameStateQuery());
-        this.server.emit('game.state', gameState);
-      } catch (error) {
-        this.logger.error(`Error handling player leave: ${error.message}`);
-      }
+    if (heroId) {
+      await this.handlePlayerDisconnect(heroId, client);
     } else {
-      this.logger.log(`🔌 CLIENT DISCONNECTED: ${client.id} | Remaining connections: ${this.server.engine.clientsCount - 1}`);
+      this.logClientDisconnect(client);
     }
 
     // Always clean up the mapping to prevent memory leaks
     this.clientToHeroId.delete(client.id);
+  }
+
+  private async handlePlayerDisconnect(heroId: string, client: Socket): Promise<void> {
+    try {
+      await this.commandBus.execute(new PlayerLeaveCommand(heroId));
+      this.logger.log(
+        `${GAME_CONSTANTS.LOGS.PLAYER_LEFT}: ${heroId} (${client.id}) | ` +
+        `Remaining connections: ${this.server.engine.clientsCount - 1}`
+      );
+
+      const gameState = await this.queryBus.execute(new GameStateQuery());
+      this.server.emit('game.state', gameState);
+    } catch (error) {
+      this.logger.error(`Error handling player leave: ${error.message}`);
+    }
+  }
+
+  private logClientDisconnect(client: Socket): void {
+    this.logger.log(
+      `${GAME_CONSTANTS.LOGS.CLIENT_DISCONNECTED}: ${client.id} | ` +
+      `Remaining connections: ${this.server.engine.clientsCount - 1}`
+    );
   }
 
   // Methods for external use (from event handlers)
@@ -177,7 +194,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         staleClientIds.forEach(clientId => {
           this.clientToHeroId.delete(clientId);
         });
-        this.logger.log(`🧹 Cleaned up ${staleClientIds.length} stale client connections`);
+        this.logger.log(`${GAME_CONSTANTS.LOGS.STALE_CONNECTIONS_CLEANED} ${staleClientIds.length} stale client connections`);
       }
     } catch (error) {
       this.logger.error(`Error during stale connection cleanup: ${error.message}`);

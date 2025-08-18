@@ -1,5 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
+import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { AiPort } from '../../application/ports/ai.port';
 import { GameRepository } from '../../domain/repositories/game.repository';
@@ -7,9 +6,10 @@ import { CombatService } from '../../domain/services/combat.service';
 import { UnitAttackedEvent } from '../../domain/events/unit-attacked.event';
 import { GameFinishedEvent } from '../../domain/events/game-finished.event';
 import { MutexService } from '../../shared/services/mutex.service';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
 
 @Injectable()
-export class AiAdapter implements AiPort {
+export class AiAdapter implements AiPort, OnModuleDestroy {
   private readonly logger = new Logger(AiAdapter.name);
   private isAiRunning = false;
   private aiIntervalId: NodeJS.Timeout | null = null;
@@ -31,9 +31,12 @@ export class AiAdapter implements AiPort {
     this.stopAi();
 
     this.isAiRunning = true;
-    this.logger.log(`🤖 AI STARTED: Villains will attack when their cooldowns allow`);
+    this.logger.log(GAME_CONSTANTS.LOGS.AI_STARTED);
 
-    this.aiIntervalId = setInterval(() => this.executeAiAction(), 200);
+    this.aiIntervalId = setInterval(
+      () => this.executeAiAction(),
+      GAME_CONSTANTS.AI_ACTION_INTERVAL_MS
+    );
   }
 
   stopAi(): void {
@@ -42,7 +45,11 @@ export class AiAdapter implements AiPort {
       clearInterval(this.aiIntervalId);
       this.aiIntervalId = null;
     }
-    this.logger.log(`🤖 AI STOPPED: Villains will no longer attack automatically`);
+    this.logger.log(GAME_CONSTANTS.LOGS.AI_STOPPED);
+  }
+
+  onModuleDestroy(): void {
+    this.stopAi();
   }
 
   isRunning(): boolean {
@@ -55,7 +62,7 @@ export class AiAdapter implements AiPort {
     }
 
     // Use mutex to prevent concurrent AI attacks and conflicts with player attacks
-    return this.mutexService.withLock('ai-attack', async () => {
+    return this.mutexService.withLock(GAME_CONSTANTS.MUTEX_KEYS.AI_ATTACK, async () => {
       try {
         const game = await this.gameRepository.findCurrent();
         if (!game || !game.isStarted() || game.isFinished()) {
@@ -92,7 +99,11 @@ export class AiAdapter implements AiPort {
         const killStatus = isKilled ? '💀 KILLED' : `❤️ ${heroHealthAfter}HP`;
         const nextAttackIn = villain.getTimeUntilNextAttack();
 
-        this.logger.log(`🤖 AI ATTACK: ${villain.getName().getValue()} ➤ ${hero.getName().getValue()} | Damage: ${attackResult.damage} | ${heroHealthBefore}HP ➤ ${killStatus} | Next attack in: ${Math.ceil(nextAttackIn / 1000)}s`);
+        this.logger.log(
+          `${GAME_CONSTANTS.LOGS.AI_ATTACK}: ${villain.getName().getValue()} ➤ ${hero.getName().getValue()} | ` +
+          `Damage: ${attackResult.damage} | ${heroHealthBefore}HP ➤ ${killStatus} | ` +
+          `Next attack in: ${Math.ceil(nextAttackIn / GAME_CONSTANTS.ATTACK_COOLDOWN_CHECK_PRECISION_MS)}s`
+        );
 
         // Publish attack event
         this.eventBus.publish(new UnitAttackedEvent(
@@ -106,7 +117,10 @@ export class AiAdapter implements AiPort {
           game.finish();
           const aliveHeroesCount = game.getAliveHeroes().length;
           const aliveVillainsCount = game.getAliveVillains().length;
-          this.logger.log(`🏁 GAME OVER: Heroes: ${aliveHeroesCount} | Villains: ${aliveVillainsCount} | Total Scores: ${game.getScores().length}`);
+          this.logger.log(
+            `${GAME_CONSTANTS.LOGS.GAME_OVER}: Heroes: ${aliveHeroesCount} | ` +
+            `Villains: ${aliveVillainsCount} | Total Scores: ${game.getScores().length}`
+          );
           this.eventBus.publish(new GameFinishedEvent(game));
         }
 
@@ -116,7 +130,7 @@ export class AiAdapter implements AiPort {
           return; // Cooldown error, just skip this AI action
         }
 
-        if (error.message.includes('Optimistic lock failure')) {
+        if (error.message.includes(GAME_CONSTANTS.ERRORS.OPTIMISTIC_LOCK_FAILURE_PREFIX)) {
           this.logger.debug('AI attack skipped due to concurrent modification');
           return; // Version conflict, skip this AI action
         }

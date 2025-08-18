@@ -7,6 +7,7 @@ import { Power } from '../value-objects/power';
 import { UnitId } from '../value-objects/unit-id';
 import { UnitName } from '../value-objects/unit-name';
 import { AttackSpeed } from '../value-objects/attack-speed';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
 
 @Injectable()
 export class UnitFactoryService {
@@ -16,7 +17,10 @@ export class UnitFactoryService {
       new UnitName(name),
       Avatar.createRandom(),
       Power.createRandom(),
-      AttackSpeed.createRandom(800, 2000) // Heroes: 0.8-2.0 seconds
+      AttackSpeed.createRandom(
+        GAME_CONSTANTS.UNIT_FACTORY.HERO_ATTACK_SPEED_MIN,
+        GAME_CONSTANTS.UNIT_FACTORY.HERO_ATTACK_SPEED_MAX
+      )
     );
   }
 
@@ -26,7 +30,10 @@ export class UnitFactoryService {
       new UnitName(name || this.generateRandomVillainName()),
       Avatar.createRandom(),
       Power.createRandom(),
-      AttackSpeed.createRandom(1200, 3000)
+      AttackSpeed.createRandom(
+        GAME_CONSTANTS.UNIT_FACTORY.VILLAIN_ATTACK_SPEED_MIN,
+        GAME_CONSTANTS.UNIT_FACTORY.VILLAIN_ATTACK_SPEED_MAX
+      )
     );
   }
 
@@ -36,7 +43,10 @@ export class UnitFactoryService {
       new UnitId(id),
       new UnitName(name),
       Avatar.createRandom(),
-      Power.createRandom(3, 8), // Lower power for balance
+      Power.createRandom(
+        GAME_CONSTANTS.UNIT_FACTORY.FAST_HERO_POWER_MIN,
+        GAME_CONSTANTS.UNIT_FACTORY.FAST_HERO_POWER_MAX
+      ),
       AttackSpeed.createFast()
     );
   }
@@ -46,13 +56,16 @@ export class UnitFactoryService {
       new UnitId(id),
       new UnitName(name),
       Avatar.createRandom(),
-      Power.createRandom(8, 15), // Higher power
+      Power.createRandom(
+        GAME_CONSTANTS.UNIT_FACTORY.TANK_HERO_POWER_MIN,
+        GAME_CONSTANTS.UNIT_FACTORY.TANK_HERO_POWER_MAX
+      ),
       AttackSpeed.createSlow()
     );
   }
 
   createVillains(count?: number): Unit[] {
-    const villainCount = count || Math.floor(Math.random() * 3) + 2;
+    const villainCount = count || this.getRandomVillainCount();
     const villains: Unit[] = [];
 
     for (let i = 0; i < villainCount; i++) {
@@ -63,13 +76,13 @@ export class UnitFactoryService {
   }
 
   private generateRandomVillainName(): string {
-    const names = [
-      'Antharas', 'Valakas', 'Baium', 'Zaken', 'Orfen',
-      'Core', 'Queen Ant', 'Beleth', 'Frintezza', 'Sailren',
-      'Lindvior', 'Tiat', 'Ekimus', 'Tauti', 'Octavis',
-      'Istina', 'Balok', 'Trasken', 'Baylor', 'Helios',
-      'Kelbim', 'Spezion', 'Embryo', 'Ramona', 'Anakim'
-    ];
+    const names = GAME_CONSTANTS.UNIT_FACTORY.VILLAIN_NAMES;
     return names[Math.floor(Math.random() * names.length)];
+  }
+
+  private getRandomVillainCount(): number {
+    const min = GAME_CONSTANTS.UNIT_FACTORY.DEFAULT_VILLAIN_COUNT_MIN;
+    const max = GAME_CONSTANTS.UNIT_FACTORY.DEFAULT_VILLAIN_COUNT_MAX;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 }

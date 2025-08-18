@@ -4,6 +4,7 @@ import { Health } from '../value-objects/health';
 import { Power } from '../value-objects/power';
 import { Avatar } from '../value-objects/avatar';
 import { AttackSpeed } from '../value-objects/attack-speed';
+import { GAME_CONSTANTS } from '../../shared/constants/game.constants';
 
 export enum UnitType {
   HERO = 'hero',
@@ -86,7 +87,8 @@ export class Unit {
     // Atomic check and update - no race condition window
     if (timeSinceLastAttack < this.attackSpeed.getCooldownMs()) {
       const cooldownRemaining = this.attackSpeed.getCooldownMs() - timeSinceLastAttack;
-      throw new Error(`Unit must wait ${Math.ceil(cooldownRemaining / 1000)} seconds before next attack`);
+      const cooldownSeconds = Math.ceil(cooldownRemaining / GAME_CONSTANTS.ATTACK_COOLDOWN_CHECK_PRECISION_MS);
+      throw new Error(`Unit must wait ${cooldownSeconds} seconds before next attack`);
     }
 
     // Atomically update the last attack time

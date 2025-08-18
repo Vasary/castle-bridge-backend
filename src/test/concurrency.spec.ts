@@ -250,25 +250,27 @@ describe('Concurrency Tests', () => {
     it('should prevent concurrent attacks from same player', async () => {
       const command = new PlayerAttackCommand('player-1');
 
-      // Start multiple concurrent attacks
+      // Start multiple concurrent attacks - no need for .catch since handler returns errors
       const attackPromises = [
-        playerAttackHandler.execute(command).catch(e => ({ error: e.message })),
-        playerAttackHandler.execute(command).catch(e => ({ error: e.message })),
-        playerAttackHandler.execute(command).catch(e => ({ error: e.message })),
+        playerAttackHandler.execute(command),
+        playerAttackHandler.execute(command),
+        playerAttackHandler.execute(command),
       ];
 
       const results = await Promise.all(attackPromises);
 
       // Count successful vs failed results
-      const successful = results.filter(r => !r.error);
-      const failed = results.filter(r => r.error);
+      const successful = results.filter(r => !('error' in r));
+      const failed = results.filter(r => 'error' in r);
 
       expect(successful.length).toBe(1);
       expect(failed.length).toBe(2);
 
       // Failed attacks should be due to cooldown
       failed.forEach(result => {
-        expect(result.error).toContain('must wait');
+        if ('error' in result) {
+          expect(result.error).toContain('must wait');
+        }
       });
     });
 
@@ -277,14 +279,20 @@ describe('Concurrency Tests', () => {
 
       // Mock the game repository to return a game with checkVersion that throws
       const mockGame = Object.create(game);
+      mockGame.getHero = jest.fn().mockReturnValue(hero); // Ensure hero is found
+      mockGame.getRandomAliveVillain = jest.fn().mockReturnValue(game.getRandomAliveVillain());
       mockGame.checkVersion = jest.fn().mockImplementation(() => {
         throw new Error('Optimistic lock failure: expected version 1, but current version is 2');
       });
 
       jest.spyOn(gameRepository, 'findCurrent').mockResolvedValueOnce(mockGame);
 
-      await expect(playerAttackHandler.execute(command))
-        .rejects.toThrow('Attack failed due to concurrent modification');
+      const result = await playerAttackHandler.execute(command);
+
+      expect('error' in result).toBe(true);
+      if ('error' in result) {
+        expect(result.error).toContain('Attack failed due to concurrent modification');
+      }
     });
   });
 });
